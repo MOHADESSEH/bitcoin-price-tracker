@@ -1,129 +1,174 @@
-# bitcoin-price-tracker
-import customtkinter as ctk
-from tkinter import messagebox
-from plyer import notification
-import requests
-import sqlite3
-from datetime import datetime
-import matplotlib.pyplot as plt
+# Bitcoin Price Tracker
 
-class BitcoinTrackerApp:
-    def __init__(self, master):
-        self.master = master
-        master.title("💰 Bitcoin Price Tracker")
-        master.geometry("600x450")
-        master.resizable(False, False)
+A desktop application built with Python that retrieves the current Bitcoin price, stores historical price data locally, displays saved price records, and visualizes Bitcoin price changes over time.
 
-        ctk.set_appearance_mode("light")
-        ctk.set_default_color_theme("green")
+## Overview
 
-        self.main_frame = ctk.CTkFrame(master, corner_radius=20)
-        self.main_frame.pack(padx=20, pady=20, fill="both", expand=True)
+**Bitcoin Price Tracker** is a lightweight desktop application designed to provide a simple way to monitor Bitcoin prices.
 
-        self.title_label = ctk.CTkLabel(self.main_frame, text="Bitcoin Tracker", font=("Segoe UI", 22, "bold"))
-        self.title_label.pack(pady=(10, 20))
+The application uses the CoinGecko API to retrieve the latest Bitcoin price in USD. Users can save retrieved prices to a local SQLite database, review their price history, and visualize stored prices using a chart.
 
-        self.price_card = ctk.CTkFrame(self.main_frame, corner_radius=15)
-        self.price_card.pack(pady=10, padx=10, fill="x")
+The graphical user interface is built with CustomTkinter to provide a modern and user-friendly desktop experience.
 
-        self.price_label = ctk.CTkLabel(self.price_card, text="Current Price: $0.00", font=("Segoe UI", 18))
-        self.price_label.pack(pady=15)
+## Features
 
-        self.button_frame = ctk.CTkFrame(self.main_frame, corner_radius=15)
-        self.button_frame.pack(pady=10)
+* 🔄 Fetch the latest Bitcoin price
+* 💵 Display the current Bitcoin price in USD
+* 🔔 Show a desktop notification when the price is retrieved
+* 💾 Save Bitcoin prices to a local SQLite database
+* 📜 View previously saved price records
+* 📈 Visualize Bitcoin price history with a chart
+* 🖥️ Modern desktop interface using CustomTkinter
+* 🗃️ Local data storage using SQLite
 
-        self.fetch_button = ctk.CTkButton(self.button_frame, text="🔄 Get Latest Price", width=200, command=self.get_price)
-        self.fetch_button.grid(row=0, column=0, padx=10, pady=10)
+## Technologies Used
 
-        self.save_button = ctk.CTkButton(self.button_frame, text="💾 Save to Database", width=200, command=self.save_price)
-        self.save_button.grid(row=1, column=0, padx=10, pady=10)
+* **Python**
+* **CustomTkinter** — graphical user interface
+* **Requests** — API communication
+* **CoinGecko API** — Bitcoin price data
+* **SQLite** — local database storage
+* **Plyer** — desktop notifications
+* **Matplotlib** — data visualization
 
-        self.history_button = ctk.CTkButton(self.button_frame, text="📜 Price History", width=200, command=self.show_history)
-        self.history_button.grid(row=2, column=0, padx=10, pady=10)
+## Project Structure
 
-        self.plot_button = ctk.CTkButton(self.button_frame, text="📈 Show Chart", width=200, command=self.plot_chart)
-        self.plot_button.grid(row=3, column=0, padx=10, pady=10)
+```text
+bitcoin-price-tracker/
+│
+├── bitcoin_price_tracker.py
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
 
-        self.current_price = None
-        self.setup_database()
+> The SQLite database is created locally when the application is used and is intentionally excluded from version control.
 
-    def setup_database(self):
-        self.conn = sqlite3.connect("bitcoin_prices.db")
-        self.cursor = self.conn.cursor()
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS prices (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                price_usd REAL,
-                timestamp TEXT)""")
-        self.conn.commit()
+## How It Works
 
-    def get_price(self):
-        try:
-            url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-            response = requests.get(url)
-            data = response.json()
-            self.current_price = float(data["bitcoin"]["usd"])
-            self.price_label.configure(text=f"Current Price: ${self.current_price:,.2f}")
+The application follows a simple workflow:
 
-            notification.notify(
-                title="Bitcoin Price Update",
-                message=f"BTC Price is now ${self.current_price:,.2f}",
-                timeout=5)
+```text
+CoinGecko API
+      ↓
+Fetch Bitcoin Price
+      ↓
+Display Current Price
+      ↓
+Save Price
+      ↓
+SQLite Database
+      ↓
+View History / Generate Chart
+```
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to fetch price.\n{e}")
+### 1. Fetch Bitcoin Price
 
-    def save_price(self):
-        if self.current_price is None:
-            messagebox.showwarning("Warning", "Please fetch the price first.")
-            return
+The application sends a request to the CoinGecko API and retrieves the current Bitcoin price in USD.
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.cursor.execute("INSERT INTO prices (price_usd, timestamp) VALUES (?, ?)",
-                            (self.current_price, timestamp))
-        self.conn.commit()
-        messagebox.showinfo("Saved", f"Price ${self.current_price} saved at {timestamp}")
+### 2. Save Price Data
 
-    def show_history(self):
-        history_window = ctk.CTkToplevel(self.master)
-        history_window.title("📜 Price History")
-        history_window.geometry("420x300")
+Users can save the retrieved price together with its timestamp.
 
-        listbox = ctk.CTkTextbox(history_window, font=("Consolas", 12))
-        listbox.pack(fill="both", expand=True, padx=10, pady=10)
+The data is stored in a local SQLite database named:
 
-        self.cursor.execute("SELECT price_usd, timestamp FROM prices ORDER BY timestamp DESC")
-        rows = self.cursor.fetchall()
+```text
+bitcoin_prices.db
+```
 
-        for price, timestamp in rows:
-            listbox.insert("end", f"${price:.2f}  -  {timestamp}\n")
+### 3. View Price History
 
-    def plot_chart(self):
-        self.cursor.execute("SELECT price_usd, timestamp FROM prices ORDER BY timestamp")
-        rows = self.cursor.fetchall()
-        if not rows:
-            messagebox.showinfo("No Data", "No price data available.")
-            return
+The application retrieves previously saved prices from the database and displays them in a separate window.
 
-        prices = [row[0] for row in rows]
-        timestamps = [row[1][-8:] for row in rows]
+### 4. Visualize Price Data
 
-        plt.figure(figsize=(8, 5))
-        plt.plot(timestamps, prices, marker='o', linestyle='-', color='green')
-        plt.xticks(rotation=45)
-        plt.title("Bitcoin Price Over Time")
-        plt.xlabel("Time")
-        plt.ylabel("Price (USD)")
-        plt.tight_layout()
-        plt.grid(True)
-        plt.show()
+Saved Bitcoin prices can be visualized using Matplotlib to show price changes over time.
 
-    def __del__(self):
-        self.conn.close()
+## Installation
 
-if __name__ == "__main__":
-    ctk.set_appearance_mode("light")
-    ctk.set_default_color_theme("green")
-    app = ctk.CTk()
-    BitcoinTrackerApp(app)
-    app.mainloop()
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/MOHADESSEH/bitcoin-price-tracker.git
+```
+
+### 2. Navigate to the project directory
+
+```bash
+cd bitcoin-price-tracker
+```
+
+### 3. Install the required dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+Run the application with:
+
+```bash
+python bitcoin_price_tracker.py
+```
+
+After launching the application:
+
+1. Click **Get Latest Price** to retrieve the current Bitcoin price.
+2. Click **Save to Database** to store the current price.
+3. Click **Price History** to view previously saved prices.
+4. Click **Show Chart** to visualize the stored price data.
+
+## Database
+
+The application uses SQLite for local data storage.
+
+The `prices` table contains:
+
+| Field       | Type    | Description                            |
+| ----------- | ------- | -------------------------------------- |
+| `id`        | INTEGER | Unique record identifier               |
+| `price_usd` | REAL    | Bitcoin price in USD                   |
+| `timestamp` | TEXT    | Date and time when the price was saved |
+
+The database file is generated automatically when the application is first executed.
+
+## API
+
+This project uses the **CoinGecko API** to retrieve Bitcoin price information.
+
+The application requests Bitcoin's current USD price and displays the returned value in the graphical interface.
+
+## Future Improvements
+
+Possible future improvements include:
+
+* Support for additional cryptocurrencies
+* Multiple fiat currencies
+* Automatic periodic price updates
+* Configurable price alerts
+* More advanced statistical analysis
+* Interactive charts
+* Exporting historical data to CSV
+* Improved error handling and API request timeouts
+* Separation of the application into multiple modules
+* Unit and integration tests
+
+## Learning Objectives
+
+This project demonstrates practical use of:
+
+* Python GUI development
+* REST API consumption
+* JSON data processing
+* SQLite database management
+* Data visualization
+* Desktop notifications
+* Event-driven programming
+* Basic software project organization
+
+## Author
+
+**MOHADESSEH**
+
+GitHub: [MOHADESSEH](https://github.com/MOHADESSEH)
